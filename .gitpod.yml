@@ -1,5 +1,11 @@
 image:
   file: .devcontainer/Dockerfile
+
+vscode:
+  extensions:
+    - ms-python.debugpy
+    - ms-python.python
+    - cweijan.vscode-database-client2
 ports:
   - port: 8000
     onOpen: open-preview
@@ -17,9 +23,9 @@ tasks:
   before: |
     direnv allow
   init: |
-    pg_ctl -o '-U postgres' initdb
-    pg_ctl start
-    psql -c 'select version();'
+    /usr/lib/postgresql/13/bin/pg_ctl -o '-U postgres' initdb
+    /usr/lib/postgresql/13/bin/pg_ctl start
+    /usr/lib/postgresql/13/bin/psql -c 'select version();'
     pip install -r requirements.txt
   command: |
     uvicorn main:app --host 0.0.0.0 --port 8000
