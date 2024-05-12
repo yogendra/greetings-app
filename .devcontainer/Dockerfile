@@ -9,21 +9,11 @@ RUN set -e \
   && ln -s /usr/bin/batcat /usr/bin/bat \
   && chsh -s /usr/bin/zsh root \
   && chsh -s /usr/bin/zsh vscode \
-  && curl https://pyenv.run | bash \  
   && echo 'export PATH=$PATH:/usr/lib/postgresql/13/bin' >> /etc/zsh/zshrc \
   && echo "source /usr/share/doc/fzf/examples/completion.zsh" >> /etc/zsh/zshrc \
   && echo "source /usr/share/doc/fzf/examples/key-bindings.zsh" >> /etc/zsh/zshrc \
   && echo "source /usr/share/bash-completion/completions/fzf" >> /etc/bash.bashrc \
   && echo "source /usr/share/doc/fzf/examples/key-bindings.bash" >> /etc/bash.bashrc \
-  && echo 'export PYENV_ROOT="$HOME/.pyenv"' >> /etc/bash.bashrc \
-  && echo '[[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"' >> /etc/bash.bashrc \
-  && echo 'eval "$(pyenv init -)"' >> /etc/bash.bashrc \
-  && echo 'eval "$(pyenv virtualenv-init -)"'  >> /etc/bash.bashrc  \
-  && echo 'export PYENV_ROOT="$HOME/.pyenv"' >> /etc/zsh/zshrc \
-  && echo '[[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"'  >> /etc/zsh/zshrc \
-  && echo 'eval "$(pyenv init -)"'  >> /etc/zsh/zshrc \
-  && echo 'eval "$(pyenv virtualenv-init -)"'  >> /etc/zsh/zshrc \
-  && echo 'eval "$(direnv hook zsh)"'>> /etc/zsh/zshrc \
   && echo 'eval "$(direnv hook bash)"'>> /etc/bash.bashrc \
   && curl -sS https://starship.rs/install.sh | sh -s -- -y \
   && echo 'eval "$(starship init zsh)"' >> /etc/zsh/zshrc \
