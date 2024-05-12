@@ -6,16 +6,35 @@ terraform {
     }
   }
 }
-
+variable "prefix" {
+  default = "lab0"
+  type = string
+  description = "prefix for all the resource"
+}
+variable "region" {
+  default = "ap-southeast-1"
+  type = string
+  description = "AWS Region"
+}
+variable "tags" {
+  default = {
+    yb_owner = "yrampuria"
+    yb_dept = "sales"
+    yb_task = "learning"
+  }
+  description = "Tags for resources"
+  type = map(string)
+}
+locals {
+  tags = merge({
+      app-env = var.prefix
+      app-type = "greetings-app"
+    }, var.tags)
+}
 provider "aws" {
-  region = "ap-southeast-1"
+  region = var.region
   default_tags {
-    tags = {
-      app = "greetings-app"
-      yb_owner = "yrampuria"
-      yb_dept = "sales"
-      yb_task = "learning"
-    }
+    tags = local.tags
   }
 }
 # Random password generation for RDS
@@ -31,7 +50,7 @@ resource "aws_vpc" "greetings_vpc" {
   enable_dns_support = true
 
   tags = {
-    Name = "greetings-vpc"
+    Name = "${var.prefix}-greetings-vpc"
   }
 }
 
@@ -40,7 +59,7 @@ resource "aws_internet_gateway" "gw" {
   vpc_id = aws_vpc.greetings_vpc.id
 
   tags = {
-    Name = "greetings-igw"
+    Name = "${var.prefix}-greetings-igw"
   }
 }
 
@@ -52,7 +71,7 @@ resource "aws_subnet" "public_subnet" {
   availability_zone = each.value
 
   tags = {
-    Name = "greetings-public-${each.value}"
+    Name = "${var.prefix}-greetings-public-${each.value}"
   }
 }
 
@@ -61,7 +80,7 @@ resource "aws_route_table" "public_route_table" {
   vpc_id = aws_vpc.greetings_vpc.id
 
   tags = {
-    Name = "greetings-public-rt"
+    Name = "${var.prefix}-greetings-public-rt"
   }
 }
 
@@ -87,32 +106,33 @@ resource "aws_subnet" "private_subnet" {
   availability_zone = each.value
 
   tags = {
-    Name = "greetings-private-${each.value}"
+    Name = "${var.prefix}-greetings-private-${each.value}"
   }
 }
 
 # Create private route table
 resource "aws_route_table" "private_route_table" {
+  for_each = toset(data.aws_availability_zones.available.names)
   vpc_id = aws_vpc.greetings_vpc.id
 
   tags = {
-    Name = "greetings-private-rt"
+    Name = "${var.prefix}-greetings-private-rt-${each.value}"
   }
 }
 
 # Create a NAT gateway route in the private route table for each AZ
 resource "aws_route" "private_nat_route" {
-  for_each         = aws_subnet.private_subnet
-  route_table_id         = aws_route_table.private_route_table.id
+  for_each = toset(data.aws_availability_zones.available.names)
+  route_table_id         = aws_route_table.private_route_table[each.key].id
   destination_cidr_block = "0.0.0.0/0"
   nat_gateway_id         = aws_nat_gateway.nat[each.key].id
 }
 
 # Associate private subnets to private route table
 resource "aws_route_table_association" "private_subnet_association" {
-  for_each = aws_subnet.private_subnet
-  subnet_id      = each.value.id
-  route_table_id = aws_route_table.private_route_table.id
+  for_each = toset(data.aws_availability_zones.available.names)
+  subnet_id      = aws_subnet.private_subnet[each.key].id
+  route_table_id = aws_route_table.private_route_table[each.key].id
 }
 
 
@@ -120,7 +140,7 @@ resource "aws_route_table_association" "private_subnet_association" {
 resource "aws_eip" "nat_eip" {
   for_each = toset(data.aws_availability_zones.available.names)
   tags = {
-    Name = "greetings-nat-eip-${each.value}"
+    Name = "${var.prefix}-greetings-nat-eip-${each.value}"
   }
 }
 
@@ -131,7 +151,7 @@ resource "aws_nat_gateway" "nat" {
   subnet_id     = aws_subnet.public_subnet[each.key].id
 
   tags = {
-    Name = "greetings-nat-${each.key}"
+    Name = "${var.prefix}-greetings-nat-${each.key}"
   }
 
   depends_on = [aws_internet_gateway.gw]
@@ -143,7 +163,7 @@ data "aws_availability_zones" "available" {}
 
 # Create Security Group for EC2
 resource "aws_security_group" "ec2_sg" {
-  name        = "greetings-ec2-sg"
+  name        = "${var.prefix}-greetings-ec2-sg"
   description = "Allow SSH and HTTP inbound traffic"
   vpc_id      = aws_vpc.greetings_vpc.id
 
@@ -182,6 +202,11 @@ resource "aws_iam_role" "ec2_ssm_role" {
 
   managed_policy_arns = ["arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"]
 }
+
+resource "aws_iam_instance_profile" "ec2_ssm_instance_profile" {
+  name = "ec2-ssm-instance-profile"
+  role = aws_iam_role.ec2_ssm_role.name
+}
 # Data source to fetch the latest Ubuntu 22.04 Jammy AMI
 
 data "aws_ami" "ubuntu" {
@@ -196,12 +221,12 @@ data "aws_ami" "ubuntu" {
 }
 # Create Launch Template
 resource "aws_launch_template" "greetings_template" {
-  name_prefix   = "greetings-template-"
+  name_prefix   = "${var.prefix}-greetings-template-"
   description   = "Launch template for Greetings Board app"
   update_default_version = true
 
   iam_instance_profile {
-    name = aws_iam_role.ec2_ssm_role.name
+    name = aws_iam_instance_profile.ec2_ssm_instance_profile.name
   }
 
   image_id               = data.aws_ami.ubuntu.id  # Use the fetched AMI ID
@@ -210,7 +235,7 @@ resource "aws_launch_template" "greetings_template" {
   instance_market_options {  # Enable Spot Instances
     market_type = "spot"
     spot_options {
-      spot_instance_type = "persistent"  # Choose your Spot Instance type
+      spot_instance_type = "one-time"  # Choose your Spot Instance type
     }
   }
 
@@ -219,19 +244,34 @@ resource "aws_launch_template" "greetings_template" {
     associate_public_ip_address = false
     subnet_id                   = aws_subnet.private_subnet["ap-southeast-1a"].id
   }
-  user_data = <<EOF
+  user_data = base64encode(<<EOF
     #cloud-config
     runcmd:
       - curl -sSL get.docker.com | bash
       - sudo usermod -a -G docker ubuntu
-      - exec su -l ubuntu docker run -d --restart=unless-stopped -p 8000:8000 --name greetings-container -e POSTGRES_HOST=${aws_db_instance.greetings_db.address} -e POSTGRES_PORT=${aws_db_instance.greetings_db.port} -e POSTGRES_USER=${aws_db_instance.greetings_db.username} -e POSTGRES_PASSWORD=${aws_db_instance.greetings_db.password} -e POSTGRES_DB=${aws_db_instance.greetings_db.db_name} yogendra/greetings-app:latest
+      - sudo -iu ubuntu docker run -d --restart=unless-stopped -p 8000:8000 --name greetings-container -e POSTGRES_HOST=${aws_db_instance.greetings_db.address} -e POSTGRES_PORT=${aws_db_instance.greetings_db.port} -e POSTGRES_USER=${aws_db_instance.greetings_db.username} -e POSTGRES_PASSWORD=${aws_db_instance.greetings_db.password} -e POSTGRES_DB=${aws_db_instance.greetings_db.db_name} yogendra/greetings-app:latest
 
     EOF
+  )
+
+  tag_specifications {
+    resource_type = "instance"
+    tags = merge(local.tags, { Name = "${var.prefix}-greetings-app" })
+  }
+  tag_specifications {
+    resource_type = "volume"
+    tags = merge(local.tags, { Name = "${var.prefix}-greetings-app" })
+  }
+
+  tag_specifications {
+    resource_type = "network-interface"
+    tags = merge(local.tags, { Name = "${var.prefix}-greetings-app" })
+  }
 }
 
 # Create Auto Scaling Group to deploy EC2 instances across AZs
 resource "aws_autoscaling_group" "greetings_asg" {
-  name = "greetings-asg"
+  name = "${var.prefix}-greetings-asg"
 
   launch_template {
     id      = aws_launch_template.greetings_template.id
@@ -254,7 +294,7 @@ resource "aws_autoscaling_group" "greetings_asg" {
 
 # Create RDS PostgreSQL instance
 resource "aws_db_instance" "greetings_db" {
-  identifier              = "greetings-db"
+  identifier              = "${var.prefix}-greetings-db"
   engine                  = "postgres"
   engine_version          = "14"  # Latest PostgreSQL version
   instance_class          = "db.t3.micro"
@@ -270,26 +310,26 @@ resource "aws_db_instance" "greetings_db" {
   skip_final_snapshot     = true
 
   tags = {
-    Name = "greetings-db"
+    Name = "${var.prefix}-greetings-db"
   }
 }
 
 # Create DB subnet group
 resource "aws_db_subnet_group" "greetings_db_subnet_group" {
-  name       = "greetings-db-subnet-group"
+  name       = "${var.prefix}-greetings-db-subnet-group"
   subnet_ids = [
     aws_subnet.private_subnet["ap-southeast-1a"].id,
     aws_subnet.private_subnet["ap-southeast-1b"].id,
     aws_subnet.private_subnet["ap-southeast-1c"].id
   ]
   tags = {
-    Name = "greetings-db-subnet-group"
+    Name = "${var.prefix}-greetings-db-subnet-group"
   }
 }
 
 # Create a security group for RDS
 resource "aws_security_group" "rds_sg" {
-  name        = "greetings-rds-sg"
+  name        = "${var.prefix}-greetings-rds-sg"
   description = "Allow inbound traffic from EC2"
   vpc_id      = aws_vpc.greetings_vpc.id
 
@@ -305,7 +345,7 @@ resource "aws_security_group" "rds_sg" {
 
 # Security Group for ALB
 resource "aws_security_group" "alb_sg" {
-  name        = "greetings-alb-sg"
+  name        = "${var.prefix}-greetings-alb-sg"
   description = "Allow HTTP inbound traffic"
   vpc_id      = aws_vpc.greetings_vpc.id
 
@@ -323,10 +363,43 @@ resource "aws_security_group" "alb_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 }
+# TLS Private Key for our project
+resource "tls_private_key" "app-tls-pkey" {
+  algorithm = "RSA"
+  rsa_bits  = 4096
+}
+
+# Certificate for AWS ALB
+resource "tls_self_signed_cert" "self_signed" {
+  private_key_pem = tls_private_key.app-tls-pkey.private_key_pem
+  subject {
+    common_name = "Greetings App (${var.prefix}-greetings-app)"
+  }
+  validity_period_hours = 1 * 30 * 24
+
+  allowed_uses = [
+    "key_encipherment",
+    "digital_signature",
+    "server_auth",
+  ]
+  # dns_names = ["test.example.com"]
+}
+
+# Put the self signed cert on AWS ACM
+resource "aws_acm_certificate" "self_signed" {
+  private_key      = tls_self_signed_cert.self_signed.private_key_pem
+  certificate_body = tls_self_signed_cert.self_signed.cert_pem
+}
+
+# Attach AWS ACM Cert to ALB listener
+resource "aws_lb_listener_certificate" "web_app_cert" {
+  listener_arn    = aws_lb_listener.front_end.arn
+  certificate_arn = aws_acm_certificate.self_signed.arn
+}
 
 # Application Load Balancer
 resource "aws_lb" "greetings_alb" {
-  name               = "greetings-alb"
+  name               = "${var.prefix}-greetings-alb"
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb_sg.id]
@@ -335,7 +408,7 @@ resource "aws_lb" "greetings_alb" {
 
 # Target Group for EC2 instances
 resource "aws_lb_target_group" "greetings_tg" {
-  name        = "greetings-tg"
+  name        = "${var.prefix}-greetings-tg"
   port        = 8000
   protocol    = "HTTP"
   vpc_id      = aws_vpc.greetings_vpc.id
@@ -346,23 +419,32 @@ resource "aws_lb_target_group" "greetings_tg" {
   }
 }
 
-# Attach EC2 instances to the target group (dynamically based on ASG)
-# resource "aws_lb_target_group_attachment" "greetings_tg_attachment" {
-#   for_each = aws_autoscaling_group.greetings_asg.
-#   target_group_arn = aws_lb_target_group.greetings_tg.arn
-#   target_id        = each.value.id
-#   port             = 8000
-# }
 
 # Listener on ALB
 resource "aws_lb_listener" "front_end" {
   load_balancer_arn = aws_lb.greetings_alb.arn
-  port              = 80
+  port              = 443
   protocol          = "HTTP"
 
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.greetings_tg.arn
+  }
+}
+
+resource "aws_lb_listener" "front_end_http" {
+  load_balancer_arn = aws_lb.greetings_alb.arn
+  port              = "80"
+  protocol          = "HTTP"
+
+  default_action {
+    type = "redirect"
+
+    redirect {
+      port        = "443"
+      protocol    = "HTTPS"
+      status_code = "HTTP_301"
+    }
   }
 }
 
