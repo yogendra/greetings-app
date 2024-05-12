@@ -355,6 +355,12 @@ resource "aws_security_group" "alb_sg" {
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
+  ingress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
 
   egress {
     from_port   = 0
@@ -382,19 +388,13 @@ resource "tls_self_signed_cert" "self_signed" {
     "digital_signature",
     "server_auth",
   ]
-  # dns_names = ["test.example.com"]
+  dns_names = ["${var.prefix}.greeting-app.example.com"]
 }
 
 # Put the self signed cert on AWS ACM
 resource "aws_acm_certificate" "self_signed" {
   private_key      = tls_self_signed_cert.self_signed.private_key_pem
   certificate_body = tls_self_signed_cert.self_signed.cert_pem
-}
-
-# Attach AWS ACM Cert to ALB listener
-resource "aws_lb_listener_certificate" "web_app_cert" {
-  listener_arn    = aws_lb_listener.front_end.arn
-  certificate_arn = aws_acm_certificate.self_signed.arn
 }
 
 # Application Load Balancer
@@ -424,8 +424,8 @@ resource "aws_lb_target_group" "greetings_tg" {
 resource "aws_lb_listener" "front_end" {
   load_balancer_arn = aws_lb.greetings_alb.arn
   port              = 443
-  protocol          = "HTTP"
-
+  protocol          = "HTTPS"
+  certificate_arn = aws_acm_certificate.self_signed.arn
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.greetings_tg.arn
