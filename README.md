@@ -1,5 +1,8 @@
 # Greetings Board App
 
+[![Build and Publish Docker Image](https://github.com/yogendra/greetings-app/actions/workflows/build-and-publish.yaml/badge.svg)](https://github.com/yogendra/greetings-app/actions/workflows/build-and-publish.yaml)
+
+![](greerings-app.png)
 
 This is a simple greetings board application built with FastAPI, HTMX, and PostgreSQL. It allows users to post greetings with their GitHub avatars and messages.
 
