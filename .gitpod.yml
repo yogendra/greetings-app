@@ -2,7 +2,7 @@ image:
   file: .devcontainer/Dockerfile
 ports:
   - port: 8000
-    onOpen: open-preview  
+    onOpen: open-preview
 tasks:
 - name: Start App
   env:
@@ -16,11 +16,10 @@ tasks:
     "POSTGRES_HOST": "localhost"
   before: |
     direnv allow
-  init:
-    pg_ctl -o '-U postgres' initdb 
+  init: |
+    pg_ctl -o '-U postgres' initdb
     pg_ctl start
     psql -c 'select version();'
     pip install -r requirements.txt
-  command:
+  command: |
     uvicorn main:app --host 0.0.0.0 --port 8000
-  
