@@ -6,9 +6,15 @@ vscode:
     - ms-python.debugpy
     - ms-python.python
     - cweijan.vscode-database-client2
+    - cweijan.dbclient-jdbc
+
 ports:
   - port: 8000
-    onOpen: open-preview
+    visibility: private
+  - port: 5432
+    name: "PGSQL"
+    visibility: private
+
 tasks:
 - name: Start App
   env:
