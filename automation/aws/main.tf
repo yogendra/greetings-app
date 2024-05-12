@@ -46,7 +46,7 @@ resource "aws_internet_gateway" "gw" {
 
 # Create public subnets (one per AZ)
 resource "aws_subnet" "public_subnet" {
-  for_each = data.aws_availability_zones.available.names
+  for_each = toset(data.aws_availability_zones.available.names)
   vpc_id            = aws_vpc.greetings_vpc.id
   cidr_block        = cidrsubnet(aws_vpc.greetings_vpc.cidr_block, 8, index(data.aws_availability_zones.available.names, each.value))
   availability_zone = each.value
@@ -81,7 +81,7 @@ resource "aws_route_table_association" "public_subnet_association" {
 
 # Create private subnets (one per AZ)
 resource "aws_subnet" "private_subnet" {
-  for_each = data.aws_availability_zones.available.names
+  for_each = toset(data.aws_availability_zones.available.names)
   vpc_id            = aws_vpc.greetings_vpc.id
   cidr_block        = cidrsubnet(aws_vpc.greetings_vpc.cidr_block, 8, 16 + index(data.aws_availability_zones.available.names, each.value))
   availability_zone = each.value
@@ -224,7 +224,7 @@ resource "aws_launch_template" "greetings_template" {
     runcmd:
       - curl -sSL get.docker.com | bash
       - sudo usermod -a -G docker ubuntu
-      - exec su -l ubuntu docker run -d -p 8000:8000 --name greetings-container -e POTGRES_
+      - exec su -l ubuntu docker run -d --restart=unless-stopped -p 8000:8000 --name greetings-container -e POSTGRES_HOST=${aws_db_instance.greetings_db.address} -e POSTGRES_PORT=${aws_db_instance.greetings_db.port} -e POSTGRES_USER=${aws_db_instance.greetings_db.username} -e POSTGRES_PASSWORD=${aws_db_instance.greetings_db.password} -e POSTGRES_DB=${aws_db_instance.greetings_db.db_name} yogendra/greetings-app:latest
 
     EOF
 }
@@ -247,6 +247,8 @@ resource "aws_autoscaling_group" "greetings_asg" {
   min_size = 1
   max_size = 3
   desired_capacity = 2
+  target_group_arns = [ aws_lb_target_group.greetings_tg.arn ]
+
 
 }
 
@@ -345,12 +347,12 @@ resource "aws_lb_target_group" "greetings_tg" {
 }
 
 # Attach EC2 instances to the target group (dynamically based on ASG)
-resource "aws_lb_target_group_attachment" "greetings_tg_attachment" {
-  for_each = aws_autoscaling_group.greetings_asg.instances
-  target_group_arn = aws_lb_target_group.greetings_tg.arn
-  target_id        = each.value.id
-  port             = 8000
-}
+# resource "aws_lb_target_group_attachment" "greetings_tg_attachment" {
+#   for_each = aws_autoscaling_group.greetings_asg.
+#   target_group_arn = aws_lb_target_group.greetings_tg.arn
+#   target_id        = each.value.id
+#   port             = 8000
+# }
 
 # Listener on ALB
 resource "aws_lb_listener" "front_end" {
