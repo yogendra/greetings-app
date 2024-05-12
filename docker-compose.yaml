@@ -8,7 +8,7 @@ services:
       - 8000:8000
     depends_on:
       db:
-        condition: service_healthy
+        condition: service_healthy  # Wait for db to be healthy
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
@@ -25,11 +25,6 @@ services:
       - postgres_data:/var/lib/postgresql/data/
     ports:
       - 5432:5432
-    healthcheck:  # Add the healthcheck section
-      test: ["CMD-SHELL", "pg_isready -U postgres -d greetings_db"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
 volumes:
   postgres_data:
