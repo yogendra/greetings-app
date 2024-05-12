@@ -31,7 +31,7 @@ tasks:
   init: |
     /usr/lib/postgresql/13/bin/pg_ctl -o '-U postgres' initdb
     /usr/lib/postgresql/13/bin/pg_ctl start
-    /usr/lib/postgresql/13/bin/psql -c 'select version();' | cat
+    /usr/lib/postgresql/13/bin/psql -P pager=off -c 'select version();' 
     pip install -r requirements.txt
   command: |
     uvicorn main:app --host 0.0.0.0 --port 8000
