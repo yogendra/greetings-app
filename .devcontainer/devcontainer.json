@@ -35,7 +35,6 @@
     "POSTGRES_USER": "postgres",
     "POSTGRES_PASSWORD": "postgres",
     "POSTGRES_HOST": "localhost"
-
   },
   "postCreateCommand": {
     "pgsetup": "pg_ctl -o '-U postgres' initdb  && pg_ctl start && psql -c 'select version();'",
