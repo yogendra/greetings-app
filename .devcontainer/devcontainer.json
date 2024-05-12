@@ -41,5 +41,6 @@
     "pgsetup": "pg_ctl -o '-U postgres' initdb  && pg_ctl start && psql -P pager=off -c 'select version();'",
     "direnvstup" :"direnv allow",
     "pip" : "pip install -r requirements.txt"
-  }
+  },
+  "postAttachCommand": "uvicorn main:app --host 0.0.0.0 --port 8000"
 }
