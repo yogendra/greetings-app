@@ -1,0 +1,11 @@
+/* Add or customize styles to fit your design preferences */
+body {
+  font-family: Roboto, sans-serif;
+}
+
+.avatar {
+  width: 40px; /* Adjust the size as needed */
+  height: 40px;
+  border-radius: 50%; /* Make it round */
+  object-fit: cover; /* Ensure the image fits the container */
+}
