@@ -4,6 +4,8 @@
 
 ![](greerings-app.png)
 
+[![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://github.com/yogendra/greetings-app)
+
 This is a simple greetings board application built with FastAPI, HTMX, and PostgreSQL. It allows users to post greetings with their GitHub avatars and messages.
 
 ## Features
