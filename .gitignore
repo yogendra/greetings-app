@@ -4,3 +4,4 @@ __pycache__/
 .terraform/
 *.tfstate*
 .envrc.private
+logfile
