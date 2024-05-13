@@ -10,10 +10,18 @@ vscode:
 
 ports:
   - port: 8000
+    name: APP
     visibility: private
+    description: Running Application
+    protocol: http
+    onOpen: open-browser
   - port: 5432
-    name: "PGSQL"
+    name: DB
     visibility: private
+    description: Running database port
+    onOpen: ignore
+    
+
 
 tasks:
 - name: Start App
